@@ -28,7 +28,7 @@ const messages: Message[] = [
   },
   {
     id: '3',
-    content: 'That sounds awesome! How's it coming along?',
+    content: 'That sounds awesome! How\'s it coming along?',
     sender: 'other',
     timestamp: '10:33 AM',
   },
@@ -46,7 +46,7 @@ const messages: Message[] = [
   },
   {
     id: '6',
-    content: 'Yes, I'm implementing read receipts and typing indicators as well.',
+    content: 'Yes, I\'m implementing read receipts and typing indicators as well.',
     sender: 'user',
     timestamp: '10:38 AM',
   },
