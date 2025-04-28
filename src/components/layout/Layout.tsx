@@ -15,11 +15,11 @@ const Layout: React.FC = () => {
         <Outlet />
       ) : (
         <SidebarProvider>
-          <div className="flex min-h-screen w-full">
+          <div className="flex min-h-screen w-full bg-[#fafafa] dark:bg-black">
             <AppSidebar />
             <div className="flex flex-col flex-1">
               <Navbar />
-              <main className="flex-1 bg-gray-50">
+              <main className="flex-1 pt-16">
                 <SidebarTrigger className="lg:hidden fixed left-4 top-4 z-50" />
                 <Outlet />
               </main>

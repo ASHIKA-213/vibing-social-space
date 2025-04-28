@@ -5,9 +5,11 @@ import PostList from '@/components/home/PostList';
 
 const Home: React.FC = () => {
   return (
-    <div className="container max-w-2xl py-6">
-      <CreatePost />
-      <PostList />
+    <div className="container max-w-[470px] py-6">
+      <div className="space-y-6">
+        <CreatePost />
+        <PostList />
+      </div>
     </div>
   );
 };

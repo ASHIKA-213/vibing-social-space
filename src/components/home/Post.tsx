@@ -51,59 +51,62 @@ const Post: React.FC<PostProps> = ({
   };
 
   return (
-    <Card className="mb-6 overflow-hidden">
-      <CardHeader className="flex flex-row items-center gap-4 p-4">
-        <Avatar>
+    <Card className="border bg-white dark:bg-black overflow-hidden">
+      <CardHeader className="flex flex-row items-center gap-3 p-3">
+        <Avatar className="h-8 w-8">
           <AvatarImage src={author.avatar} alt={author.name} />
           <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
         </Avatar>
         <div className="flex flex-col">
-          <span className="font-medium">{author.name}</span>
-          <span className="text-xs text-muted-foreground">@{author.username} • {timestamp}</span>
+          <span className="text-sm font-semibold">{author.name}</span>
+          <span className="text-xs text-muted-foreground">@{author.username}</span>
         </div>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <p className="mb-4">{content}</p>
-        {image && (
-          <div className="overflow-hidden rounded-md">
-            <img src={image} alt="Post" className="object-cover w-full h-full" />
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex flex-col p-0">
-        <div className="flex items-center justify-between w-full px-4 py-2">
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`rounded-full ${liked ? 'text-red-500 hover:text-red-600' : ''}`}
-              onClick={handleLike}
-            >
-              <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
-            </Button>
-            <span className="text-sm">{likes}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <MessageCircle className="w-5 h-5" />
-            </Button>
-            <span className="text-sm">{commentCount}</span>
-          </div>
+      {image && (
+        <div className="aspect-square relative">
+          <img src={image} alt="Post" className="object-cover w-full h-full" />
         </div>
-        <Separator />
-        <form onSubmit={handleComment} className="flex items-center w-full gap-2 p-2">
-          <Avatar className="w-7 h-7">
-            <AvatarImage src={author.avatar} alt={author.name} />
-            <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
-          </Avatar>
+      )}
+      <CardContent className="p-3">
+        <div className="flex gap-3 mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`rounded-full p-2 ${liked ? 'text-red-500 hover:text-red-600' : ''}`}
+            onClick={handleLike}
+          >
+            <Heart className={`w-6 h-6 ${liked ? 'fill-current' : ''}`} />
+          </Button>
+          <Button variant="ghost" size="icon" className="rounded-full p-2">
+            <MessageCircle className="w-6 h-6" />
+          </Button>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">{likes} likes</p>
+          <div className="text-sm">
+            <span className="font-semibold mr-2">{author.username}</span>
+            {content}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {commentCount} comments • {timestamp}
+          </p>
+        </div>
+      </CardContent>
+      <CardFooter className="p-3 pt-0">
+        <form onSubmit={handleComment} className="flex items-center w-full gap-2">
           <Input
             placeholder="Add a comment..."
-            className="flex-1 h-8 bg-gray-100 border-0"
+            className="flex-1 h-8 bg-transparent border-0 px-0 focus-visible:ring-0"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />
-          <Button type="submit" size="icon" variant="ghost" className="rounded-full h-8 w-8" disabled={!comment.trim()}>
-            <Send className="w-4 h-4" />
+          <Button 
+            type="submit" 
+            variant="ghost" 
+            className="text-primary p-0 h-auto hover:bg-transparent" 
+            disabled={!comment.trim()}
+          >
+            Post
           </Button>
         </form>
       </CardFooter>
