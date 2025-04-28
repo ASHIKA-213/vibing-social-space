@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Image, Plus } from 'lucide-react';
+import { useWebSocket, WebSocketMessageEvent } from '@/services/websocketService';
+import { useToast } from '@/hooks/use-toast';
 
 interface Message {
   id: string;
@@ -13,7 +15,7 @@ interface Message {
   timestamp: string;
 }
 
-const messages: Message[] = [
+const initialMessages: Message[] = [
   {
     id: '1',
     content: 'Hey, how are you doing?',
@@ -28,13 +30,13 @@ const messages: Message[] = [
   },
   {
     id: '3',
-    content: 'That sounds awesome! How\'s it coming along?',
+    content: "That sounds awesome! How\\'s it coming along?",
     sender: 'other',
     timestamp: '10:33 AM',
   },
   {
     id: '4',
-    content: "Making good progress! I'm using WebSockets for the real-time functionality.",
+    content: "Making good progress! I\\'m using WebSockets for the real-time functionality.",
     sender: 'user',
     timestamp: '10:35 AM',
   },
@@ -46,7 +48,7 @@ const messages: Message[] = [
   },
   {
     id: '6',
-    content: 'Yes, I\'m implementing read receipts and typing indicators as well.',
+    content: "Yes, I\\'m implementing read receipts and typing indicators as well.",
     sender: 'user',
     timestamp: '10:38 AM',
   },
@@ -54,14 +56,95 @@ const messages: Message[] = [
 
 const ChatWindow: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [isTyping, setIsTyping] = useState(false);
+  const { connected, sendEvent, getEventsByType } = useWebSocket();
+  const { toast } = useToast();
+  
+  // Handle incoming WebSocket messages
+  useEffect(() => {
+    const wsMessages = getEventsByType<WebSocketMessageEvent>('message');
+    if (wsMessages.length > 0) {
+      const latestMessages = wsMessages.map(event => event.data);
+      setMessages(prev => {
+        // Filter out duplicates based on ID
+        const newMessages = latestMessages.filter(
+          msg => !prev.some(existing => existing.id === msg.id)
+        );
+        return [...prev, ...newMessages];
+      });
+    }
+  }, [getEventsByType]);
+  
+  // Simulate typing indicators
+  useEffect(() => {
+    let typingTimer: number | undefined;
+    
+    if (isTyping) {
+      typingTimer = window.setTimeout(() => {
+        setIsTyping(false);
+      }, 3000);
+    }
+    
+    return () => {
+      if (typingTimer) clearTimeout(typingTimer);
+    };
+  }, [isTyping]);
+
+  // Connection status notification
+  useEffect(() => {
+    if (connected) {
+      toast({
+        title: "Connected",
+        description: "Real-time chat is now active",
+      });
+    } else {
+      toast({
+        title: "Disconnected",
+        description: "Chat is currently offline",
+        variant: "destructive",
+      });
+    }
+  }, [connected, toast]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     
-    console.log('Send message:', newMessage);
+    // Create new message
+    const message: Message = {
+      id: Date.now().toString(),
+      content: newMessage,
+      sender: 'user',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    
+    // Add to local state immediately for UI responsiveness
+    setMessages(prev => [...prev, message]);
+    
+    // Send through WebSocket
+    sendEvent({
+      type: 'message',
+      data: message
+    });
+    
     setNewMessage('');
-    // In a real app, this would add the message to the chat
+  };
+
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    
+    if (!isTyping && e.target.value) {
+      setIsTyping(true);
+      sendEvent({
+        type: 'typing',
+        data: {
+          userId: 'current-user',
+          conversationId: '1',
+          isTyping: true
+        }
+      });
+    }
   };
 
   return (
@@ -74,7 +157,9 @@ const ChatWindow: React.FC = () => {
           </Avatar>
           <div>
             <h3 className="font-semibold">Sarah Connor</h3>
-            <p className="text-xs text-muted-foreground">Online</p>
+            <p className="text-xs text-muted-foreground">
+              {isTyping ? 'Typing...' : (connected ? 'Online' : 'Offline')}
+            </p>
           </div>
         </div>
       </div>
@@ -119,9 +204,14 @@ const ChatWindow: React.FC = () => {
             placeholder="Type a message..."
             className="flex-1"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={handleTyping}
           />
-          <Button type="submit" size="icon" className="rounded-full" disabled={!newMessage.trim()}>
+          <Button 
+            type="submit" 
+            size="icon" 
+            className="rounded-full" 
+            disabled={!newMessage.trim() || !connected}
+          >
             <Send className="h-4 w-4" />
           </Button>
         </form>

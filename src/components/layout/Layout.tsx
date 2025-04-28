@@ -1,13 +1,20 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import AppSidebar from '@/components/sidebar/AppSidebar';
+import { useWebSocket } from '@/services/websocketService';
 
 const Layout: React.FC = () => {
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
+  const { connected } = useWebSocket();
+  
+  // Log WebSocket connection status 
+  useEffect(() => {
+    console.log('WebSocket connection status:', connected ? 'Connected' : 'Disconnected');
+  }, [connected]);
 
   return (
     <>

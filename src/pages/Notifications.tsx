@@ -1,9 +1,7 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Heart, MessageCircle, User, UserPlus } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 import { 
   Card, 
   CardContent, 
@@ -11,6 +9,8 @@ import {
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
+import { useWebSocket, WebSocketNotificationEvent } from '@/services/websocketService';
+import { useToast } from '@/hooks/use-toast';
 
 interface Notification {
   id: string;
@@ -25,7 +25,7 @@ interface Notification {
   read: boolean;
 }
 
-const notifications: Notification[] = [
+const initialNotifications: Notification[] = [
   {
     id: '1',
     type: 'like',
@@ -91,9 +91,15 @@ const NotificationIcon: React.FC<{ type: Notification['type'] }> = ({ type }) =>
   }
 };
 
-const NotificationItem: React.FC<{ notification: Notification }> = ({ notification }) => {
+const NotificationItem: React.FC<{ notification: Notification; onRead: (id: string) => void }> = ({ 
+  notification, 
+  onRead 
+}) => {
   return (
-    <div className={`p-4 ${notification.read ? '' : 'bg-secondary'}`}>
+    <div 
+      className={`p-4 ${notification.read ? '' : 'bg-secondary'}`}
+      onClick={() => !notification.read && onRead(notification.id)}
+    >
       <div className="flex items-start gap-4">
         <Avatar>
           <AvatarImage src={notification.user.avatar} />
@@ -115,16 +121,147 @@ const NotificationItem: React.FC<{ notification: Notification }> = ({ notificati
 };
 
 const Notifications: React.FC = () => {
+  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [unreadCount, setUnreadCount] = useState<number>(
+    initialNotifications.filter(n => !n.read).length
+  );
+  const { connected, sendEvent, getEventsByType } = useWebSocket();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const wsNotifications = getEventsByType<WebSocketNotificationEvent>('notification');
+    
+    if (wsNotifications.length > 0) {
+      const latestNotifications = wsNotifications.map(event => event.data);
+      
+      setNotifications(prev => {
+        const newNotifications = latestNotifications.filter(
+          notif => !prev.some(existing => existing.id === notif.id)
+        );
+        
+        newNotifications.forEach(notification => {
+          toast({
+            title: `New ${notification.type}`,
+            description: `${notification.user.name} ${notification.content}`,
+          });
+        });
+        
+        setUnreadCount(prev => prev + newNotifications.filter(n => !n.read).length);
+        
+        return [...newNotifications, ...prev];
+      });
+    }
+  }, [getEventsByType, toast]);
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, read: true } 
+          : notification
+      )
+    );
+    
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => 
+      prev.map(notification => ({ ...notification, read: true }))
+    );
+    setUnreadCount(0);
+    
+    sendEvent({
+      type: 'notification',
+      data: {
+        id: 'mark-all-read',
+        type: 'message',
+        user: {
+          name: 'System',
+          username: 'system',
+          avatar: '',
+        },
+        content: 'marked all notifications as read',
+        time: new Date().toLocaleTimeString(),
+        read: true,
+      }
+    });
+  };
+  
+  useEffect(() => {
+    if (!connected) return;
+    
+    const notificationTypes: Array<Notification['type']> = ['like', 'comment', 'follow', 'message'];
+    const users = [
+      {
+        name: 'Sarah Connor',
+        username: 'sarahc',
+        avatar: 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=128&h=128&fit=crop&crop=face',
+      },
+      {
+        name: 'John Doe',
+        username: 'johndoe',
+        avatar: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=128&h=128&fit=crop&crop=face',
+      }
+    ];
+    
+    const contents = [
+      'liked your recent post',
+      'commented on your photo',
+      'started following you',
+      'sent you a message'
+    ];
+    
+    const timer = setInterval(() => {
+      if (Math.random() < 0.2) {
+        const typeIndex = Math.floor(Math.random() * notificationTypes.length);
+        const userIndex = Math.floor(Math.random() * users.length);
+        const contentIndex = Math.floor(Math.random() * contents.length);
+        
+        sendEvent({
+          type: 'notification',
+          data: {
+            id: `auto-${Date.now()}`,
+            type: notificationTypes[typeIndex],
+            user: users[userIndex],
+            content: contents[contentIndex],
+            time: 'just now',
+            read: false,
+          }
+        });
+      }
+    }, 15000);
+    
+    return () => clearInterval(timer);
+  }, [connected, sendEvent]);
+  
   return (
     <div className="container max-w-2xl py-6">
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>Stay updated with your network</CardDescription>
+              <CardTitle>
+                Notifications 
+                {unreadCount > 0 && (
+                  <span className="ml-2 text-sm bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {connected 
+                  ? 'Stay updated with your network in real-time'
+                  : 'Notifications are currently offline'
+                }
+              </CardDescription>
             </div>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleMarkAllAsRead}
+              disabled={unreadCount === 0}
+            >
               Mark all as read
             </Button>
           </div>
@@ -132,7 +269,11 @@ const Notifications: React.FC = () => {
         <CardContent className="p-0">
           <div className="divide-y">
             {notifications.map((notification) => (
-              <NotificationItem key={notification.id} notification={notification} />
+              <NotificationItem 
+                key={notification.id} 
+                notification={notification} 
+                onRead={handleMarkAsRead}
+              />
             ))}
           </div>
         </CardContent>
